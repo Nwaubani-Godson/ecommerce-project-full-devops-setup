@@ -1,0 +1,138 @@
+services:
+  # 1. User Service
+  user-service:
+    build:
+      context: .
+      dockerfile: ./backend/user-service/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+    expose:
+      - "8000"
+    networks:
+      - ecommerce_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 2. Product Service
+  product-service:
+    build:
+      context: .
+      dockerfile: ./backend/product-service/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+    expose:
+      - "8000"
+    networks:
+      - ecommerce_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 3. Cart Service
+  cart-service:
+    build:
+      context: .
+      dockerfile: ./backend/cart-service/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+    expose:
+      - "8000"
+    networks:
+      - ecommerce_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 4. Order Service
+  order-service:
+    build:
+      context: .
+      dockerfile: ./backend/order-service/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+    expose:
+      - "8000"
+    networks:
+      - ecommerce_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 5. React Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      nginx-proxy:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - ecommerce_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 6. Nginx Proxy / API Gateway
+  nginx-proxy:
+    build:
+      context: ./backend/nginx-proxy
+    ports:
+      - "8000:80"
+    depends_on:
+      user-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      cart-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - ecommerce_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  ecommerce_net:
+    driver: bridge
+
+# Note: No volumes needed since we're using external database
+# PostgreSQL data will be managed by local PostgreSQL installation

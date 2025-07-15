@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log
+yarn-error.log
+.env
+.git
+.gitignore
+README.md
+build # The 'build' directory will be created by 'npm run build' inside the container
+dist
+.DS_Store
+*.log
+*.zip
+*.tar
+.vscode/
