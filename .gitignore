@@ -22,5 +22,4 @@ db_data/
 *.db  
 .vscode/
 .idea/
-.docs/
 *.bak

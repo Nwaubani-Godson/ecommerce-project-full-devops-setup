@@ -23,8 +23,8 @@ def get_cart_db():
 @app.on_event("startup")
 async def startup_event():
     engine = get_engine(DATABASE_URL)
-    Base.metadata.create_all(bind=engine)
-    print("Cart service database tables checked/created.")
+    # Base.metadata.create_all(bind=engine)
+    print("Cart service ready to connect to database.")
 
 @app.get("/health")
 async def health_check():

@@ -27,8 +27,9 @@ async def startup_event():
     engine = get_engine(DATABASE_URL)
     # This creates tables if they don't exist.
     # In a production setup, use Alembic for migrations.
-    Base.metadata.create_all(bind=engine)
-    print("User service database tables checked/created.")
+    # Base.metadata.create_all(bind=engine)
+    # print("User service database tables checked/created.")
+    print("User service ready to connect to database.")
 
 @app.get("/health")
 async def health_check():

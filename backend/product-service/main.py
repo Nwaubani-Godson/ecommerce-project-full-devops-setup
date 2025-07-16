@@ -24,8 +24,8 @@ def get_product_db():
 @app.on_event("startup")
 async def startup_event():
     engine = get_engine(DATABASE_URL)
-    Base.metadata.create_all(bind=engine)
-    print("Product service database tables checked/created.")
+    # Base.metadata.create_all(bind=engine)
+    print("Product service ready to connect to database.")
 
 @app.get("/health")
 async def health_check():
