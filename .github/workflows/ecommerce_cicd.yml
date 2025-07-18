@@ -70,6 +70,9 @@ jobs:
           pip install -r backend/cart-service/requirements.txt
           pip install -r backend/order-service/requirements.txt
 
+      - name: Give execute permission for test.sh
+        run: chmod +x ./test.sh
+
       - name: Run Backend Tests (Pytest) 
         run: ./test.sh 
 
