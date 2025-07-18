@@ -1,14 +1,14 @@
-# user-service/main.py
 from fastapi import FastAPI, Depends, HTTPException, status # type: ignore
 from fastapi.security import OAuth2PasswordRequestForm # type: ignore
-from sqlalchemy.orm import Session # type: ignore
+from sqlalchemy.ext.asyncio import AsyncSession # type: ignore # Import AsyncSession
+from sqlalchemy import select # type: ignore # Import select for async ORM queries
 from datetime import timedelta
 
 # Import shared components
-from shared.database import get_db, Base, get_engine
+from shared.database import get_db, Base, get_engine # get_db and get_engine are now async
 from shared.models import User, Cart # Cart is needed for creating a cart on user registration
 from shared.schemas import UserCreate, UserResponse, Token
-from shared.security import verify_password, get_password_hash, create_access_token, get_current_user
+from shared.security import verify_password, get_password_hash, create_access_token, get_current_user # get_current_user might also need async updates depending on its implementation
 from shared.config import ACCESS_TOKEN_EXPIRE_MINUTES, DATABASE_URL
 
 app = FastAPI(
@@ -18,52 +18,66 @@ app = FastAPI(
     root_path="/users" # This is important for the Nginx proxy routing
 )
 
-# Custom dependency for the user service's database connection
-def get_user_db():
-    yield from get_db(DATABASE_URL)
+# Custom dependency for the user service's asynchronous database connection
+async def get_user_db():
+    # Await the asynchronous get_db from shared.database
+    async for session in get_db(DATABASE_URL):
+        yield session
 
-@app.on_event("startup")
+@app.on_event("startup") # Deprecated, but keeping for now as it's in your original structure
 async def startup_event():
-    engine = get_engine(DATABASE_URL)
+    # Ensure the engine is created asynchronously
+    engine = await get_engine(DATABASE_URL)
     # This creates tables if they don't exist.
     # In a production setup, use Alembic for migrations.
-    # Base.metadata.create_all(bind=engine)
-    # print("User service database tables checked/created.")
-    print("User service ready to connect to database.")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all) # Run synchronous create_all within async context
+    print("User service database tables checked/created.")
 
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
 
 @app.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def register_user(user: UserCreate, db: Session = Depends(get_user_db)):
-    db_user = db.query(User).filter(User.username == user.username).first()
+async def register_user(
+    user: UserCreate,
+    db: AsyncSession = Depends(get_user_db) # Type hint with AsyncSession
+):
+    # Check if username already registered asynchronously
+    db_user_username_result = await db.execute(select(User).filter(User.username == user.username))
+    db_user = db_user_username_result.scalar_one_or_none()
     if db_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username already registered")
-    db_user = db.query(User).filter(User.email == user.email).first()
+    
+    # Check if email already registered asynchronously
+    db_user_email_result = await db.execute(select(User).filter(User.email == user.email))
+    db_user = db_user_email_result.scalar_one_or_none()
     if db_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
 
     hashed_password = get_password_hash(user.password)
     new_user = User(username=user.username, email=user.email, hashed_password=hashed_password)
     db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    await db.commit() # Await commit
+    await db.refresh(new_user) # Await refresh
 
-    # Create an empty cart for the new user
-    # In a very strict microservices pattern, this would be an event (e.g., UserCreated)
-    # sent to a message queue, and the Cart service would consume it.
-    # For simplicity and direct porting, we keep it here for now.
+    # Create an empty cart for the new user asynchronously
     new_cart = Cart(user_id=new_user.id)
     db.add(new_cart)
-    db.commit()
-    db.refresh(new_cart)
+    await db.commit() # Await commit
+    await db.refresh(new_cart) # Await refresh
 
     return new_user
 
 @app.post("/token", response_model=Token)
-def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_user_db)):
-    user = db.query(User).filter(User.username == form_data.username).first()
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_user_db) # Type hint with AsyncSession
+):
+    # Fetch user asynchronously
+    user_result = await db.execute(select(User).filter(User.username == form_data.username))
+    user = user_result.scalar_one_or_none()
+
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -77,6 +91,11 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/me", response_model=UserResponse)
-def read_users_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_user_db)):
-    # get_current_user uses the db_session from get_user_db here, not the default get_db
+async def read_users_me(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_user_db) # Type hint with AsyncSession
+):
+    # get_current_user typically fetches the user based on the token.
+    # Its implementation in shared/security.py should also be updated to be async
+    # and use AsyncSession if it performs DB lookups.
     return current_user

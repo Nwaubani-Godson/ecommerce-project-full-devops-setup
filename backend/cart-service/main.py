@@ -1,9 +1,11 @@
 from fastapi import FastAPI, Depends, HTTPException, status # type: ignore
-from sqlalchemy.orm import Session, relationship # type: ignore # relationship needed for eager loading
+from sqlalchemy.ext.asyncio import AsyncSession # type: ignore # Import AsyncSession
+from sqlalchemy.orm import relationship, joinedload # type: ignore # relationship needed for eager loading, joinedload for eager loading in queries
 from sqlalchemy.sql import func # type: ignore
+from sqlalchemy import select # type: ignore # Import select for async ORM queries
 
 # Import shared components
-from shared.database import get_db, Base, get_engine
+from shared.database import get_db, Base, get_engine # get_db is now async
 from shared.models import Cart, CartItem, Product, User
 from shared.schemas import CartItemBase, CartResponse
 from shared.security import get_current_user
@@ -16,45 +18,78 @@ app = FastAPI(
     root_path="/cart" # This is important for the Nginx proxy routing
 )
 
-# Custom dependency for the cart service's database connection
-def get_cart_db():
-    yield from get_db(DATABASE_URL)
+# Custom dependency for the cart service's asynchronous database connection
+async def get_cart_db():
+    # Await the asynchronous get_db from shared.database
+    async for session in get_db(DATABASE_URL):
+        yield session
 
-@app.on_event("startup")
+# Use FastAPI's lifespan events for startup/shutdown (replaces deprecated on_event)
+@app.on_event("startup") # Deprecated, but keeping for now as it's in your original structure
 async def startup_event():
-    engine = get_engine(DATABASE_URL)
-    # Base.metadata.create_all(bind=engine)
-    print("Cart service ready to connect to database.")
+    # Ensure the engine is created asynchronously
+    engine = await get_engine(DATABASE_URL)
+    # You might want to run Base.metadata.create_all here for application startup,
+    # but ensure it's done with an async connection.
+    # For production, migrations (e.g., Alembic) are preferred over create_all on startup.
+    async with engine.begin() as conn:
+        # This creates tables if they don_t exist. For production, use Alembic migrations.
+        await conn.run_sync(Base.metadata.create_all)
+    print("Cart service database tables checked/created.")
+
 
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
 
 @app.get("/", response_model=CartResponse)
-def get_user_cart(current_user: User = Depends(get_current_user), db: Session = Depends(get_cart_db)):
-    # Eager load cart items for the response
-    cart = db.query(Cart).options(relationship("items")).filter(Cart.user_id == current_user.id).first()
+async def get_user_cart(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_cart_db) # Type hint with AsyncSession
+):
+    # Eager load cart items for the response using async ORM query
+    # Use select() and await db.execute() for async queries
+    cart_result = await db.execute(
+        select(Cart)
+        .options(joinedload(Cart.items)) # Corrected: Use joinedload for eager loading
+        .filter(Cart.user_id == current_user.id)
+    )
+    # Add .unique() when eager loading collections to handle duplicate parent rows
+    cart = cart_result.unique().scalar_one_or_none() # Added .unique()
+
     if not cart:
-        # This case should ideally not happen if a cart is created on user registration
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found for this user")
     return cart
 
 @app.post("/items", response_model=CartResponse, status_code=status.HTTP_200_OK)
-def add_item_to_cart(item: CartItemBase, current_user: User = Depends(get_current_user), db: Session = Depends(get_cart_db)):
-    cart = db.query(Cart).filter(Cart.user_id == current_user.id).first()
+async def add_item_to_cart(
+    item: CartItemBase,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_cart_db) # Type hint with AsyncSession
+):
+    cart_result = await db.execute(
+        select(Cart).filter(Cart.user_id == current_user.id)
+    )
+    cart = cart_result.scalar_one_or_none()
     if not cart:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found for this user")
 
-    product = db.query(Product).filter(Product.id == item.product_id).first()
+    product_result = await db.execute(
+        select(Product).filter(Product.id == item.product_id)
+    )
+    product = product_result.scalar_one_or_none()
     if not product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
     if product.stock_quantity < item.quantity:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not enough stock for this product")
 
-    cart_item = db.query(CartItem).filter(
-        CartItem.cart_id == cart.id,
-        CartItem.product_id == item.product_id
-    ).first()
+    cart_item_result = await db.execute(
+        select(CartItem).filter(
+            CartItem.cart_id == cart.id,
+            CartItem.product_id == item.product_id
+        )
+    )
+    cart_item = cart_item_result.scalar_one_or_none()
 
     if cart_item:
         cart_item.quantity += item.quantity
@@ -69,62 +104,101 @@ def add_item_to_cart(item: CartItemBase, current_user: User = Depends(get_curren
         db.add(cart_item)
 
     cart.updated_at = func.now() # Update cart timestamp
-    db.commit()
-    db.refresh(cart)
-    if cart_item: # Refresh the item to get its ID if new or updated
-        db.refresh(cart_item)
+    await db.commit() # Await commit
+    await db.refresh(cart) # Await refresh
+    if cart_item:
+        await db.refresh(cart_item) # Await refresh
 
     # Re-fetch cart with items to ensure response is complete (including relations)
-    cart_with_items = db.query(Cart).options(relationship("items")).filter(Cart.user_id == current_user.id).first()
+    # This needs to be done after commit and refresh to get the updated state
+    cart_with_items_result = await db.execute(
+        select(Cart)
+        .options(joinedload(Cart.items)) # Corrected: Use joinedload for eager loading
+        .filter(Cart.user_id == current_user.id)
+    )
+    # Add .unique() when eager loading collections to handle duplicate parent rows
+    cart_with_items = cart_with_items_result.unique().scalar_one_or_none() # Added .unique()
     return cart_with_items
 
 @app.put("/items/{product_id}", response_model=CartResponse)
-def update_cart_item_quantity(product_id: int, quantity: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_cart_db)):
-    cart = db.query(Cart).filter(Cart.user_id == current_user.id).first()
+async def update_cart_item_quantity(
+    product_id: int,
+    quantity: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_cart_db) # Type hint with AsyncSession
+):
+    cart_result = await db.execute(
+        select(Cart).filter(Cart.user_id == current_user.id)
+    )
+    cart = cart_result.scalar_one_or_none()
     if not cart:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found for this user")
 
-    cart_item = db.query(CartItem).filter(
-        CartItem.cart_id == cart.id,
-        CartItem.product_id == product_id
-    ).first()
+    cart_item_result = await db.execute(
+        select(CartItem).filter(
+            CartItem.cart_id == cart.id,
+            CartItem.product_id == product_id
+        )
+    )
+    cart_item = cart_item_result.scalar_one_or_none()
 
     if not cart_item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not in cart")
 
     if quantity <= 0:
-        db.delete(cart_item)
+        await db.delete(cart_item) # Await delete
     else:
-        product = db.query(Product).filter(Product.id == product_id).first()
+        product_result = await db.execute(
+            select(Product).filter(Product.id == product_id)
+        )
+        product = product_result.scalar_one_or_none()
         if not product:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
         if product.stock_quantity < quantity:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not enough stock for this quantity")
         cart_item.quantity = quantity
         cart_item.price_at_add = product.price # Update price in case it changed
-    
+
     cart.updated_at = func.now() # Update cart timestamp
-    db.commit()
-    
+    await db.commit() # Await commit
+
     # Re-fetch cart with items to ensure response is complete
-    cart_with_items = db.query(Cart).options(relationship("items")).filter(Cart.user_id == current_user.id).first()
+    cart_with_items_result = await db.execute(
+        select(Cart)
+        .options(joinedload(Cart.items)) # Corrected: Use joinedload for eager loading
+        .filter(Cart.user_id == current_user.id)
+    )
+    # Add .unique() when eager loading collections to handle duplicate parent rows
+    cart_with_items = cart_with_items_result.unique().scalar_one_or_none() # Added .unique()
     return cart_with_items
 
 @app.delete("/items/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_item_from_cart(product_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_cart_db)):
-    cart = db.query(Cart).filter(Cart.user_id == current_user.id).first()
+async def remove_item_from_cart(
+    product_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_cart_db) # Type hint with AsyncSession
+):
+    cart_result = await db.execute(
+        select(Cart).filter(Cart.user_id == current_user.id)
+    )
+    cart = cart_result.scalar_one_or_none()
     if not cart:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found for this user")
 
-    cart_item = db.query(CartItem).filter(
-        CartItem.cart_id == cart.id,
-        CartItem.product_id == product_id
-    ).first()
+    cart_item_result = await db.execute(
+        select(CartItem).filter(
+            CartItem.cart_id == cart.id,
+            CartItem.product_id == product_id
+        )
+    )
+    cart_item = cart_item_result.scalar_one_or_none()
 
     if not cart_item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not in cart")
 
-    db.delete(cart_item)
+    await db.delete(cart_item) # Await delete
     cart.updated_at = func.now() # Update cart timestamp
-    db.commit()
-    return {"message": "Item removed from cart successfully"}
+    await db.commit() # Await commit
+    # No return value needed for 204 No Content, but FastAPI might complain if nothing is returned.
+    # Returning an empty dict or None is common for 204.
+    return {} # Return empty dict for 204 No Content status

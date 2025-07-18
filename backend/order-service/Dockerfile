@@ -8,13 +8,14 @@ RUN apt-get update && \
 
 WORKDIR /app
 
+ENV PYTHONPATH=/app:$PYTHONPATH
 
 COPY backend/order-service/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/shared /app/shared
 COPY backend/order-service/main.py /app/main.py
-
+COPY backend/order-service/tests/ /app/tests/
 
 EXPOSE 8000
 

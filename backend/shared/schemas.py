@@ -11,6 +11,11 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+
 class UserResponse(UserBase):
     id: int
     created_at: datetime
@@ -47,6 +52,12 @@ class CartItemBase(BaseModel):
     product_id: int
     quantity: int
 
+class CartItemCreate(CartItemBase):
+    pass
+
+class CartItemUpdate(CartItemBase):
+    quantity: Optional[int] = None
+
 class CartItemResponse(CartItemBase):
     id: int
     price_at_add: float
@@ -66,6 +77,12 @@ class CartResponse(BaseModel):
         from_attributes = True
 
 # Order Schemas
+class OrderCreate(BaseModel):
+    cart_id: int
+
+class OrderStatusUpdate(BaseModel):
+    status: str
+
 class OrderItemResponse(BaseModel):
     id: int
     product_id: int
