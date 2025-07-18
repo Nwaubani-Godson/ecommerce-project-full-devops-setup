@@ -26,7 +26,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      
+      # Debug: Check lengths of postgres env variables (masked)
+      - name: "Debug: check length of Postgres secrets"
+        run: |
+          echo "POSTGRES_USER length: ${#POSTGRES_USER}"
+          echo "POSTGRES_PASSWORD length: ${#POSTGRES_PASSWORD}"
+          echo "POSTGRES_DB length: ${#POSTGRES_DB}"
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+
+      # Debug: Print all environment variables available (may mask secrets)
+      - name: "Debug: print environment variables"
+        run: env
+
       - name: Set up Node.js for Frontend
         uses: actions/setup-node@v4
         with:
@@ -49,7 +63,6 @@ jobs:
         working-directory: ./frontend
         run: npm test 
 
-      
       - name: Set up Python for Backend
         uses: actions/setup-python@v5
         with:
@@ -104,7 +117,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3 
 
-     
       - name: Build and Push Frontend Docker Image 
         uses: docker/build-push-action@v5
         with:
@@ -113,7 +125,6 @@ jobs:
           tags: ${{ secrets.DOCKER_USERNAME }}/ecommerce-app-frontend:latest
           file: ./frontend/Dockerfile 
 
-      
       - name: Build and Push User Service Docker Image 
         uses: docker/build-push-action@v5
         with:
@@ -146,7 +157,6 @@ jobs:
           tags: ${{ secrets.DOCKER_USERNAME }}/ecommerce-app-order-service:latest
           file: ./backend/order-service/Dockerfile
 
-      
       - name: Build and Push Nginx Proxy Docker Image
         uses: docker/build-push-action@v5
         with:
