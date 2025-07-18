@@ -129,15 +129,6 @@ jobs:
           echo "=== USER SERVICE DEBUG ==="
           echo "User service directory contents:"
           ls -la backend/user-service/ 2>/dev/null || echo "backend/user-service/ not found"
-          echo ""
-          echo "Checking specific files needed by Dockerfile:"
-          echo "requirements.txt: $([ -f "backend/user-service/requirements.txt" ] && echo "EXISTS" || echo "MISSING")"
-          echo "main.py: $([ -f "backend/user-service/main.py" ] && echo "EXISTS" || echo "MISSING")"
-          echo "tests/ directory: $([ -d "backend/user-service/tests" ] && echo "EXISTS" || echo "MISSING")"
-          echo "Dockerfile: $([ -f "backend/user-service/Dockerfile" ] && echo "EXISTS" || echo "MISSING")"
-          echo ""
-          echo "Checking for shared directory (if referenced in Dockerfile):"
-          ls -la backend/shared/ 2>/dev/null || echo "backend/shared/ does not exist"
 
       - name: Build and Push User Service Docker Image 
         uses: docker/build-push-action@v5
@@ -198,10 +189,10 @@ jobs:
       - name: Build and Push Nginx Proxy Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./backend/nginx-proxy
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/ecommerce-app-nginx-proxy:latest
-          file: ./backend/nginx-proxy/Dockerfile 
+          file: Dockerfile 
 
   simulate-deploy: 
     needs: build-and-push-images 
