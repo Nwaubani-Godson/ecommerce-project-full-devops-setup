@@ -79,6 +79,34 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Debug: Check project structure before building
+      - name: Debug - Check Project Structure
+        run: |
+          echo "=== PROJECT STRUCTURE DEBUG ==="
+          echo "Root directory contents:"
+          ls -la
+          echo ""
+          echo "Backend directory contents:"
+          ls -la backend/ 2>/dev/null || echo "backend/ directory not found"
+          echo ""
+          echo "Backend services structure:"
+          for service in user-service product-service cart-service order-service nginx-proxy; do
+            echo "--- $service ---"
+            if [ -d "backend/$service" ]; then
+              ls -la backend/$service/
+              echo "Dockerfile exists: $([ -f "backend/$service/Dockerfile" ] && echo "YES" || echo "NO")"
+            else
+              echo "backend/$service directory does not exist"
+            fi
+            echo ""
+          done
+          echo ""
+          echo "Frontend directory contents:"
+          ls -la frontend/ 2>/dev/null || echo "frontend/ directory not found"
+          echo ""
+          echo "Checking for shared directory:"
+          ls -la backend/shared/ 2>/dev/null || echo "backend/shared/ does not exist"
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -96,6 +124,21 @@ jobs:
           tags: ${{ secrets.DOCKER_USERNAME }}/ecommerce-app-frontend:latest
           file: ./frontend/Dockerfile 
 
+      - name: Debug - User Service Structure
+        run: |
+          echo "=== USER SERVICE DEBUG ==="
+          echo "User service directory contents:"
+          ls -la backend/user-service/ 2>/dev/null || echo "backend/user-service/ not found"
+          echo ""
+          echo "Checking specific files needed by Dockerfile:"
+          echo "requirements.txt: $([ -f "backend/user-service/requirements.txt" ] && echo "EXISTS" || echo "MISSING")"
+          echo "main.py: $([ -f "backend/user-service/main.py" ] && echo "EXISTS" || echo "MISSING")"
+          echo "tests/ directory: $([ -d "backend/user-service/tests" ] && echo "EXISTS" || echo "MISSING")"
+          echo "Dockerfile: $([ -f "backend/user-service/Dockerfile" ] && echo "EXISTS" || echo "MISSING")"
+          echo ""
+          echo "Checking for shared directory (if referenced in Dockerfile):"
+          ls -la backend/shared/ 2>/dev/null || echo "backend/shared/ does not exist"
+
       - name: Build and Push User Service Docker Image 
         uses: docker/build-push-action@v5
         with:
@@ -103,6 +146,12 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/ecommerce-app-user-service:latest
           file: ./backend/user-service/Dockerfile
+
+      - name: Debug - Product Service Structure
+        run: |
+          echo "=== PRODUCT SERVICE DEBUG ==="
+          echo "Product service directory contents:"
+          ls -la backend/product-service/ 2>/dev/null || echo "backend/product-service/ not found"
 
       - name: Build and Push Product Service Docker Image
         uses: docker/build-push-action@v5
@@ -112,6 +161,12 @@ jobs:
           tags: ${{ secrets.DOCKER_USERNAME }}/ecommerce-app-product-service:latest
           file: ./backend/product-service/Dockerfile
 
+      - name: Debug - Cart Service Structure
+        run: |
+          echo "=== CART SERVICE DEBUG ==="
+          echo "Cart service directory contents:"
+          ls -la backend/cart-service/ 2>/dev/null || echo "backend/cart-service/ not found"
+
       - name: Build and Push Cart Service Docker Image
         uses: docker/build-push-action@v5
         with:
@@ -120,6 +175,12 @@ jobs:
           tags: ${{ secrets.DOCKER_USERNAME }}/ecommerce-app-cart-service:latest
           file: ./backend/cart-service/Dockerfile
 
+      - name: Debug - Order Service Structure
+        run: |
+          echo "=== ORDER SERVICE DEBUG ==="
+          echo "Order service directory contents:"
+          ls -la backend/order-service/ 2>/dev/null || echo "backend/order-service/ not found"
+
       - name: Build and Push Order Service Docker Image 
         uses: docker/build-push-action@v5
         with:
@@ -127,6 +188,12 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/ecommerce-app-order-service:latest
           file: ./backend/order-service/Dockerfile
+
+      - name: Debug - Nginx Proxy Structure
+        run: |
+          echo "=== NGINX PROXY DEBUG ==="
+          echo "Nginx proxy directory contents:"
+          ls -la backend/nginx-proxy/ 2>/dev/null || echo "backend/nginx-proxy/ not found"
 
       - name: Build and Push Nginx Proxy Docker Image
         uses: docker/build-push-action@v5
