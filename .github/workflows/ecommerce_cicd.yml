@@ -142,7 +142,7 @@ jobs:
       - name: Build and Push User Service Docker Image 
         uses: docker/build-push-action@v5
         with:
-          context: ./backend/user-service
+          context: .
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/ecommerce-app-user-service:latest
           file: ./backend/user-service/Dockerfile
@@ -156,7 +156,7 @@ jobs:
       - name: Build and Push Product Service Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: ./backend/product-service
+          context: .
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/ecommerce-app-product-service:latest
           file: ./backend/product-service/Dockerfile
@@ -170,7 +170,7 @@ jobs:
       - name: Build and Push Cart Service Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: ./backend/cart-service
+          context: .
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/ecommerce-app-cart-service:latest
           file: ./backend/cart-service/Dockerfile
@@ -184,7 +184,7 @@ jobs:
       - name: Build and Push Order Service Docker Image 
         uses: docker/build-push-action@v5
         with:
-          context: ./backend/order-service
+          context: .
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/ecommerce-app-order-service:latest
           file: ./backend/order-service/Dockerfile
@@ -198,7 +198,7 @@ jobs:
       - name: Build and Push Nginx Proxy Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: ./backend/nginx-proxy 
+          context: .
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/ecommerce-app-nginx-proxy:latest
           file: ./backend/nginx-proxy/Dockerfile 
