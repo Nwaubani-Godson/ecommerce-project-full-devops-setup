@@ -189,10 +189,10 @@ jobs:
       - name: Build and Push Nginx Proxy Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: ./backend/nginx-proxy/Dockerfile
+          context: .
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/ecommerce-app-nginx-proxy:latest
-          # file: ./backend/nginx-proxy/Dockerfile
+          file: ./backend/nginx-proxy/Dockerfile
 
   simulate-deploy: 
     needs: build-and-push-images 
