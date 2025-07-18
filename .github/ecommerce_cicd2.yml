@@ -9,9 +9,37 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest 
 
+    services:
+      db:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Debug: Check lengths of postgres env variables (masked)
+      - name: "Debug: check length of Postgres secrets"
+        run: |
+          echo "POSTGRES_USER length: ${#POSTGRES_USER}"
+          echo "POSTGRES_PASSWORD length: ${#POSTGRES_PASSWORD}"
+          echo "POSTGRES_DB length: ${#POSTGRES_DB}"
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+
+      # Debug: Print all environment variables available (may mask secrets)
+      - name: "Debug: print environment variables"
+        run: env
 
       - name: Set up Node.js for Frontend
         uses: actions/setup-node@v4
@@ -41,17 +69,12 @@ jobs:
           python-version: '3.10' 
           cache: 'pip' 
 
-      - name: Create .env file for docker-compose
+      - name: Prepare Backend Environment (.env for tests)
         run: |
-          echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" > .env
-          echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
-          echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
-          echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
-          echo "DATABASE_URL=postgresql+asyncpg://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@db:5432/${{ secrets.POSTGRES_DB }}" >> .env
-          
-          # Debug: show .env file contents (secrets will be masked)
-          echo "--- .env file contents ---"
-          cat .env
+          # Create a .env file at the root for the backend test runner
+          # This points to the 'db' service provided by GitHub Actions
+          echo "DATABASE_URL=postgresql+asyncpg://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@db:5432/${{ secrets.POSTGRES_DB }}" > .env
+          echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env 
 
       - name: Install Backend Python Dependencies (for each service)
         run: |
@@ -60,16 +83,22 @@ jobs:
           pip install -r backend/cart-service/requirements.txt
           pip install -r backend/order-service/requirements.txt
 
+      - name: Set up Docker Compose
+        uses: docker/setup-compose-action@v1
+        with:
+          version: latest 
+
+      - name: Show docker and compose version
+        run: |
+          docker --version
+          docker compose version
+
       - name: Give execute permission for test.sh
         run: chmod +x ./test.sh
 
-      - name: Run Backend Tests with Docker Compose
-        env:
-          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
-        run: ./test.sh
+      - name: Run Backend Tests (Pytest) 
+        run: ./test.sh 
+
 
   build-and-push-images:
     needs: build-and-test 
@@ -136,6 +165,8 @@ jobs:
           tags: ${{ secrets.DOCKER_USERNAME }}/ecommerce-app-nginx-proxy:latest
           file: ./backend/nginx-proxy/Dockerfile 
 
+
+
   simulate-deploy: 
     needs: build-and-push-images 
     runs-on: ubuntu-latest 
@@ -143,5 +174,5 @@ jobs:
     steps:
       - name: Deploy Simulation
         run: |
-          echo "Simulating deployment of the ecommerce application..."
+          echo "Simulating deployment of the eCommerce application..."
           echo "Deployment simulation complete!"
