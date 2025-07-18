@@ -75,6 +75,11 @@ jobs:
         with:
           version: latest 
 
+      - name: Show docker and compose version
+        run: |
+          docker --version
+          docker compose version
+
       - name: Give execute permission for test.sh
         run: chmod +x ./test.sh
 
