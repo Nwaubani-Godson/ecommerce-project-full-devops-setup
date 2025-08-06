@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession # type: ignore # Import AsyncSes
 from sqlalchemy.orm import relationship, joinedload # type: ignore # relationship needed for eager loading, joinedload for eager loading in queries
 from sqlalchemy.sql import func # type: ignore
 from sqlalchemy import select # type: ignore # Import select for async ORM queries
+from prometheus_fastapi_instrumentator import Instrumentator # type: ignore
 
 # Import shared components
 from shared.database import get_db, Base, get_engine # get_db is now async
@@ -17,6 +18,13 @@ app = FastAPI(
     version="1.0.0",
     root_path="/cart" # This is important for the Nginx proxy routing
 )
+
+# --- PROMETHEUS INSTRUMENTATION START ---
+# Initialize Prometheus instrumentation on startup
+# This automatically exposes the /metrics endpoint
+Instrumentator().instrument(app).expose(app)
+print("Prometheus metrics exposed at /metrics")
+# --- PROMETHEUS INSTRUMENTATION END ---
 
 # Custom dependency for the cart service's asynchronous database connection
 async def get_cart_db():

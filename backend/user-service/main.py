@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm # type: ignore
 from sqlalchemy.ext.asyncio import AsyncSession # type: ignore # Import AsyncSession
 from sqlalchemy import select # type: ignore # Import select for async ORM queries
 from datetime import timedelta
+from prometheus_fastapi_instrumentator import Instrumentator # type: ignore
 
 # Import shared components
 from shared.database import get_db, Base, get_engine # get_db and get_engine are now async
@@ -17,6 +18,13 @@ app = FastAPI(
     version="1.0.0",
     root_path="/users" # This is important for the Nginx proxy routing
 )
+
+# --- PROMETHEUS INSTRUMENTATION START ---
+# Initialize Prometheus instrumentation on startup
+# This automatically exposes the /metrics endpoint
+Instrumentator().instrument(app).expose(app)
+print("Prometheus metrics exposed at /metrics")
+# --- PROMETHEUS INSTRUMENTATION END ---
 
 # Custom dependency for the user service's asynchronous database connection
 async def get_user_db():
@@ -33,6 +41,7 @@ async def startup_event():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all) # Run synchronous create_all within async context
     print("User service database tables checked/created.")
+
 
 @app.get("/health")
 async def health_check():

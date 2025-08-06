@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession # type: ignore
 from sqlalchemy.orm import selectinload # type: ignore
 from sqlalchemy.sql import func # type: ignore
 from sqlalchemy import select # type: ignore
+from prometheus_fastapi_instrumentator import Instrumentator # type: ignore
 
 from shared.database import get_db, Base, get_engine
 from shared.models import Order, OrderItem, Product, Cart, CartItem, User
@@ -18,6 +19,13 @@ app = FastAPI(
     root_path="/orders",  # Important for proxy routing
 )
 
+# --- PROMETHEUS INSTRUMENTATION START ---
+# Initialize Prometheus instrumentation on startup
+# This automatically exposes the /metrics endpoint
+Instrumentator().instrument(app).expose(app)
+print("Prometheus metrics exposed at /metrics")
+# --- PROMETHEUS INSTRUMENTATION END ---
+
 async def get_order_db():
     async for session in get_db(DATABASE_URL):
         yield session
@@ -28,6 +36,7 @@ async def startup_event():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     print("Order service database tables checked/created.")
+
 
 @app.get("/health")
 async def health_check():

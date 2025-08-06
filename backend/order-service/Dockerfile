@@ -17,6 +17,6 @@ COPY backend/shared /app/shared
 COPY backend/order-service/main.py /app/main.py
 COPY backend/order-service/tests/ /app/tests/
 
-EXPOSE 8000
+EXPOSE 8004
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8004"]

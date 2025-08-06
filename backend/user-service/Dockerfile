@@ -19,6 +19,6 @@ COPY backend/user-service/main.py /app/main.py
 COPY backend/user-service/tests/ /app/tests/
 
 
-EXPOSE 8000
+EXPOSE 8001
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]

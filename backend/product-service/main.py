@@ -3,6 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException, status # type: ignore
 from sqlalchemy.ext.asyncio import AsyncSession # type: ignore # Import AsyncSession
 from sqlalchemy import select # type: ignore # Import select for async ORM queries
 from sqlalchemy.sql import func # type: ignore # For timestamps
+from prometheus_fastapi_instrumentator import Instrumentator # type: ignore
 
 # Import shared components
 from shared.database import get_db, Base, get_engine # get_db and get_engine are now async
@@ -18,6 +19,13 @@ app = FastAPI(
     root_path="/products" # This is important for the Nginx proxy routing
 )
 
+# --- PROMETHEUS INSTRUMENTATION START ---
+# Initialize Prometheus instrumentation on startup
+# This automatically exposes the /metrics endpoint
+Instrumentator().instrument(app).expose(app)
+print("Prometheus metrics exposed at /metrics")
+# --- PROMETHEUS INSTRUMENTATION END ---
+
 # Custom dependency for the product service's asynchronous database connection
 async def get_product_db():
     # Await the asynchronous get_db from shared.database
@@ -32,6 +40,7 @@ async def startup_event():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     print("Product service database tables checked/created.")
+
 
 @app.get("/health")
 async def health_check():
