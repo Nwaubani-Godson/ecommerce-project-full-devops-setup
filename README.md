@@ -1,6 +1,6 @@
 # E-commerce Microservices Application
 
-A scalable e-commerce platform built with microservices architecture, featuring Docker orchestration, comprehensive monitoring, and an Nginx-powered API Gateway.
+A scalable e-commerce platform built with microservices architecture, featuring Docker orchestration, comprehensive monitoring, automated CI/CD pipeline, and an Nginx-powered API Gateway.
 
 ## Features
 
@@ -10,6 +10,7 @@ A scalable e-commerce platform built with microservices architecture, featuring 
 - **Order Processing** - Seamless order creation and management
 - **API Gateway** - Centralized request routing and load balancing via Nginx
 - **Monitoring & Observability** - Real-time metrics with Prometheus and Grafana dashboards
+- **CI/CD Pipeline** - Automated testing, linting, Docker builds, and deployment with GitHub Actions
 
 ## Architecture
 
@@ -46,6 +47,7 @@ This application follows a microservices architecture pattern where each busines
 - **API Gateway** - Nginx
 - **Monitoring** - Prometheus, Grafana
 - **Instrumentation** - prometheus-fastapi-instrumentator, nginx-prometheus-exporter
+- **CI/CD** - GitHub Actions, Docker Hub integration
 
 ## Quick Start
 
@@ -54,6 +56,64 @@ This application follows a microservices architecture pattern where each busines
 Ensure you have the following installed:
 - **Git** - Version control
 - **Docker Desktop** - Container runtime (includes Docker Compose)
+
+## CI/CD Pipeline
+This project uses GitHub Actions for continuous integration and deployment automation with a comprehensive 3-stage pipeline.
+
+### Pipeline Architecture
+The CI/CD workflow (ecommerce CI/CD Pipeline) consists of three sequential jobs:
+
+1. Build and Test 
+
+- **Frontend Testing:** Node.js 20 setup with Vitest test execution
+- **Backend Testing:** Python 3.10 with comprehensive service testing via Docker Compose
+- **Dependency Caching:** Optimized build times with npm and pip caching
+- **Environment Configuration:** Secure secrets management for database and authentication
+
+2. Build and Push Images 
+
+- **Multi-service Docker builds:** Automated building of all microservice images
+- **Docker Hub Integration:** Images pushed with latest tags
+- **Build Optimization:** Docker Buildx for enhanced build performance
+- **Debug Logging:** Comprehensive structure validation during builds
+
+3. Deployment Simulation 
+
+- **Deployment Readiness:** Validates successful image builds
+- **AWS Integration Ready:** Infrastructure prepared for cloud deployment
+
+### Workflow Triggers
+
+- **Push to main branch** - Executes full 3-stage pipeline
+
+### Docker Hub Images
+All microservice images are automatically built and pushed:
+
+- `your-dockerhub-username/ecommerce-app-frontend:latest`
+- `your-dockerhub-username/ecommerce-app-user-service:latest`
+- `your-dockerhub-username/ecommerce-app-product-service:latest`
+- `your-dockerhub-username/ecommerce-app-cart-service:latest`
+- `your-dockerhub-username/ecommerce-app-order-service:latest`
+- `your-dockerhub-username/ecommerce-app-nginx-proxy:latest`
+
+### Security Features
+
+- **GitHub Secrets:** Database credentials and Docker Hub authentication
+- **Environment Isolation:** Secure handling of sensitive configuration
+- **Multi-layer Validation:** Testing before image building and deployment
+
+### Pipeline Performance
+
+- **Parallel Processing:** Independent service builds for faster execution
+- **Intelligent Caching:** Node modules and Python dependencies cached
+- **Fail-fast Strategy:** Pipeline stops on first failure to save resources
+
+### Future Enhancements
+
+- AWS ECS/EKS deployment integration
+- Pull request validation workflows
+- Production environment automation
+- Advanced monitoring and alerting integration
 
 ### Installation Steps
 
